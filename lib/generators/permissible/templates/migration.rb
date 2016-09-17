@@ -6,12 +6,14 @@ class CreatePermissibleTables < ActiveRecord::Migration
       t.timestamps null: false
     end
 
-    create_table :permissible_permissions do |t|
+    create_table :model_permissions do |t|
       t.references :permission, null: false, index: true, foreign_key: true
       t.references :permissible, null: false, index: true, polymorphic: true
-      t.string     :value, null: false, index: true
+      t.string     :value, null: false, index: true, default: 'allow'
       t.timestamps null: false
-      t.index      [:permission_id, :permissible_id, :permissible_type], unique: true
+      t.index      [:permission_id, :permissible_id, :permissible_type], unique: true, name: <<-NAME.squish
+        index_model_permissions_on_permission_id_and_permissible
+      NAME
     end
 
     create_table :implied_permissions do |t|
