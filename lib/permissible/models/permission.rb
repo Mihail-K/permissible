@@ -32,6 +32,7 @@ module Permissible
                   .join(implied_table, Arel::Nodes::OuterJoin)
                   .on(arel_table[:id].eq(implied_table[:permission_id]))
                   .union(
+                    :all,
                     arel_table.project(p_alias[:id], ip_alias[:implied_by_id])
                               .from(p_alias)
                               .join(ip_alias, Arel::Nodes::OuterJoin)

@@ -3,9 +3,13 @@ module Permissible
     extend ActiveSupport::Concern
 
     included do
-      has_many :model_permissions, as: :permissible,
-                                   class_name: 'Permissible::ModelPermission',
-                                   after_remove: -> { permission_cache.clear }
+      def self.permissions_association
+        :"#{model_name.singular}_permissions"
+      end
+
+      has_many permissions_association, as: :permissible,
+                                        class_name: 'Permissible::ModelPermission',
+                                        after_remove: -> { permission_cache.clear }
 
       def self.inherits_permissions_from(*params)
         options = params.extract_options!
@@ -38,6 +42,10 @@ module Permissible
       end
     end
 
+    def permission_cache
+      @permission_cache ||= ActiveSupport::HashWithIndifferentAccess.new
+    end
+
   private
 
     def check_combined_permissions(permission)
@@ -52,7 +60,8 @@ module Permissible
     end
 
     def check_local_permissions(permission)
-      values = model_permissions.all_sources_of(permission).pluck(:value)
+      assocation = send(self.class.permissions_association)
+      values     = assocation.all_sources_of(permission).pluck(:value)
       return 'deny' if values.blank?
 
       values.all? { |v| v == 'allow' } ? 'allow' : 'forbid'
@@ -70,10 +79,6 @@ module Permissible
           send(assocation.name).try(:check_permission, permission) || [ ]
         end
       end.flatten || [ ]
-    end
-
-    def permission_cache
-      @permission_cache ||= ActiveSupport::HashWithIndifferentAccess.new
     end
 
     def permission_log(logged)
