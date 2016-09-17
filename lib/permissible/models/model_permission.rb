@@ -11,5 +11,9 @@ module Permissible
     validates :permission, presence: true
     validates :permissible, presence: true
     validates :value, presence: true
+
+    scope :for_permission, -> (permission) {
+      joins(:permission).where(permissions: { id: Permission.all_sources_of(permission) })
+    }
   end
 end
