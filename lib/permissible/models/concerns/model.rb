@@ -10,6 +10,8 @@ module Permissible
       has_many permissions_association, as: :permissible,
                                         class_name: 'Permissible::ModelPermission',
                                         after_remove: -> { permission_cache.clear }
+      has_many :permissions, through: permissions_association,
+                             class_name: 'Permissible::Permission'
 
       def self.inherits_permissions_from(*params)
         options = params.extract_options!

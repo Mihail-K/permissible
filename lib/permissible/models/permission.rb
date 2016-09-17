@@ -1,13 +1,15 @@
 module Permissible
   class Permission < ActiveRecord::Base
+    self.table_name = 'permissible_permissions'
+
     has_many :model_permissions, class_name: 'Permissible::ModelPermission'
 
-    has_and_belongs_to_many :implied_by_permissions, join_table: :implied_permissions,
+    has_and_belongs_to_many :implied_by_permissions, join_table: 'permissible_implied_permissions',
                                                      foreign_key: :permission_id,
                                                      association_foreign_key: :implied_by_id,
                                                      class_name: 'Permissible::Permission'
 
-    has_and_belongs_to_many :implied_permissions, join_table: :implied_permissions,
+    has_and_belongs_to_many :implied_permissions, join_table: 'permissible_implied_permissions',
                                                   foreign_key: :implied_by_id,
                                                   association_foreign_key: :permission_id,
                                                   class_name: 'Permissible::Permission'
@@ -21,8 +23,8 @@ module Permissible
     }
 
     def self.construct_implied_cte(name)
-      permissions_tree = Arel::Table.new('permissions_tree')
-      implied_table    = Arel::Table.new('implied_permissions')
+      permissions_tree = Arel::Table.new('permissible_permissions_tree')
+      implied_table    = Arel::Table.new('permissible_implied_permissions')
       p_alias          = arel_table.alias('p_alias')
       ip_alias         = implied_table.alias('ip_alias')
       cte_node         = Arel::Nodes::As.new(
