@@ -63,10 +63,10 @@ module Permissible
 
     def check_local_permissions(permission)
       assocation = send(self.class.permissions_association)
-      values     = assocation.all_sources_of(permission).pluck(:value)
+      values     = assocation.all_sources_of(permission).group(:value).count
       return 'deny' if values.blank?
 
-      values.all? { |v| v == 'allow' } ? 'allow' : 'forbid'
+      values.key?('forbid') ? 'forbid' : 'allow'
     end
 
     def check_inherited_permissions(permission)
