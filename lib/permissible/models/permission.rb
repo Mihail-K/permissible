@@ -46,7 +46,7 @@ module Permissible
       arel_table[:id].in(
                        arel_table.project(permissions_tree[:id])
                                  .from(permissions_tree)
-                                 .with(cte_node)
+                                 .with(:recursive, cte_node)
                      )
     end
   end
