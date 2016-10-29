@@ -60,8 +60,8 @@ module Permissible
 
     def check_local_permissions(permission)
       return 'none'   if permission_buckets.blank?
-      return 'allow'  if (permission_buckets['allow'] || []).include?(permission.to_s)
-      return 'forbid' if (permission_buckets['forbid'] || []).include?(permission.to_s)
+      return 'forbid' if permission_buckets['forbid'].try(:include?, permission.to_s)
+      return 'allow'  if permission_buckets['allow'].try(:include?, permission.to_s)
       'none'
     end
 
