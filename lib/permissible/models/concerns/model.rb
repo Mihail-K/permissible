@@ -9,7 +9,9 @@ module Permissible
 
       has_many permissions_association, as: :permissible,
                                         class_name: 'Permissible::ModelPermission',
-                                        after_remove: -> { permission_cache.clear }
+                                        after_add: -> { permission_buckets.clear },
+                                        after_remove: -> { permission_buckets.clear }
+
       has_many :permissions, through: permissions_association,
                              class_name: 'Permissible::Permission'
 
@@ -17,6 +19,7 @@ module Permissible
         options = params.extract_options!
 
         params.each do |name|
+          next if reflect_on_association(name).nil?
           inheritable_permissions[name] = options
         end
       end
@@ -35,22 +38,6 @@ module Permissible
     end
 
     def check_permission(permission)
-      if permission_cache.key?(permission)
-        permission_log("#{self.class.name}(#{id}) Permission cache-hit: `#{permission}'")
-        permission_cache[permission]
-      else
-        permission_log("#{self.class.name}(#{id}) Permission cache-miss: `#{permission}'")
-        permission_cache[permission] = check_combined_permissions(permission)
-      end
-    end
-
-    def permission_cache
-      @permission_cache ||= ActiveSupport::HashWithIndifferentAccess.new
-    end
-
-  private
-
-    def check_combined_permissions(permission)
       value = check_local_permissions(permission)
       return 'forbid' if value == 'forbid'
 
@@ -58,34 +45,35 @@ module Permissible
       return 'forbid' if values.any? { |v| v == 'forbid' }
 
       values << value
-      values.any? { |v| v == 'allow' } ? 'allow' : 'deny'
+      values.any? { |v| v == 'allow' } ? 'allow' : 'none'
     end
 
-    def check_local_permissions(permission)
-      assocation = send(self.class.permissions_association)
-      values     = assocation.all_sources_of(permission).group(:value).count
-      return 'deny' if values.blank?
+    def permission_buckets
+      @permission_buckets ||= send(self.class.permissions_association).implied_buckets.to_h
+    end
 
-      values.key?('forbid') ? 'forbid' : 'allow'
+  private
+
+    def check_local_permissions(permission)
+      return 'none'   if permission_buckets.blank?
+      return 'allow'  if (permission_buckets['allow'] || []).include?(permission.to_s)
+      return 'forbid' if (permission_buckets['forbid'] || []).include?(permission.to_s)
+      'none'
     end
 
     def check_inherited_permissions(permission)
       self.class.inheritable_permissions.map do |name, options|
-        [self.class.reflect_on_association(name), options]
-      end.select do |assocation, options|
-        assocation.present?
-      end.map do |assocation, options|
-        if assocation.collection?
-          send(assocation.name).map { |o| o.check_permission(permission) }
-        else
-          send(assocation.name).try(:check_permission, permission) || [ ]
-        end
-      end.flatten || [ ]
-    end
+        assocation = self.class.reflect_on_association(name)
+        next if assocation.nil?
 
-    def permission_log(logged)
-      # TODO : Temporary.
-      Rails.logger.debug("[Permissible] #{logged}") if Permissible::Config.log_permission_cache
+        if assocation.collection?
+          send(assocation.name).map do |object|
+            object.check_permission(permission)
+          end
+        else
+          send(assocation.name).try(:check_permission, permission)
+        end
+      end.reject(&:nil?).flatten
     end
   end
 end
