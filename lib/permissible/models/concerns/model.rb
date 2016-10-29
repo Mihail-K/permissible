@@ -8,9 +8,7 @@ module Permissible
       end
 
       has_many permissions_association, as: :permissible,
-                                        class_name: 'Permissible::ModelPermission',
-                                        after_add: -> { permission_buckets.clear },
-                                        after_remove: -> { permission_buckets.clear }
+                                        class_name: 'Permissible::ModelPermission'
 
       has_many :permissions, through: permissions_association,
                              class_name: 'Permissible::Permission'
@@ -48,8 +46,14 @@ module Permissible
       values.any? { |v| v == 'allow' } ? 'allow' : 'none'
     end
 
+    def permission_cache_key
+      { permissible_id: id, permissible_type: self.class.name }
+    end
+
     def permission_buckets
-      @permission_buckets ||= send(self.class.permissions_association).implied_buckets.to_h
+      @permission_buckets ||= Rails.cache.fetch(permission_cache_key, expires_in: 15.minutes) do
+        send(self.class.permissions_association).implied_buckets.to_h
+      end
     end
 
   private

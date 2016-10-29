@@ -14,6 +14,8 @@ module Permissible
     validates :permissible, presence: true
     validates :value, presence: true
 
+    after_commit :purge_permission_bucket_cache
+
     scope :implied_buckets, -> {
       recursive.group(:value).pluck(:value, <<-SQL.squish)
         json_agg(permissible_permissions.name)
@@ -50,6 +52,10 @@ module Permissible
                 .on(p_table[:id].in(permissions_tree.project(permissions_tree[:id])
                                                     .with(:recursive, cte_node)))
                 .join_sources
+    end
+
+    def purge_permission_bucket_cache
+      Rails.cache.delete(permissible.permission_cache_key)
     end
   end
 end
